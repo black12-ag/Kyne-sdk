@@ -1,0 +1,32 @@
+{
+  "name": "@kyne/sdk",
+  "version": "1.0.0",
+  "description": "Official JavaScript SDK for Kyne Payment Verification Gateway",
+  "main": "kyne.js",
+  "module": "kyne.js",
+  "types": "kyne.d.ts",
+  "author": "Kyne <support@kyne.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/black12-ag/Kyne-sdk.git"
+  },
+  "homepage": "https://kyne.com/docs",
+  "keywords": [
+    "kyne",
+    "payment",
+    "verification",
+    "ethiopia",
+    "cbe",
+    "telebirr",
+    "payment-gateway"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "kyne.js",
+    "kyne.d.ts",
+    "README.md"
+  ]
+}
