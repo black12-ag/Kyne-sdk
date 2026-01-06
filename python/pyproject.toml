@@ -1,17 +1,17 @@
 [project]
-name = "kyne"
+name = "shegerpay"
 version = "1.0.0"
-description = "Official Python SDK for Kyne Payment Verification Gateway"
+description = "Official Python SDK for ShegerPay Payment Verification Gateway"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Kyne", email = "support@kyne.com"}
+    {name = "ShegerPay", email = "support@shegerpay.com"}
 ]
 requires-python = ">=3.8"
 dependencies = [
     "requests>=2.25.0",
 ]
-keywords = ["kyne", "payment", "verification", "ethiopia", "cbe", "telebirr"]
+keywords = ["shegerpay", "payment", "verification", "ethiopia", "cbe", "telebirr"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -25,13 +25,13 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://kyne.com"
-Documentation = "https://kyne.com/docs"
-Repository = "https://github.com/black12-ag/Kyne-sdk.git"
+Homepage = "https://shegerpay.com"
+Documentation = "https://shegerpay.com/docs"
+Repository = "https://github.com/black12-ag/ShegerPay-sdk.git"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["kyne"]
+packages = ["shegerpay"]

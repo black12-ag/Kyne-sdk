@@ -1,4 +1,4 @@
-package com.kyne.sdk;
+package com.shegerpay.sdk;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -13,19 +13,19 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Kyne Java SDK
- * Official Java SDK for Kyne Payment Verification Gateway
+ * ShegerPay Java SDK
+ * Official Java SDK for ShegerPay Payment Verification Gateway
  * 
  * Usage:
- *   Kyne client = new Kyne("sk_test_xxx");
+ *   ShegerPay client = new ShegerPay("sk_test_xxx");
  *   VerificationResult result = client.verify("FT123456", 100);
  * 
  * @version 1.0.0
  */
-public class Kyne {
+public class ShegerPay {
     
     private static final String VERSION = "1.0.0";
-    private static final String DEFAULT_BASE_URL = "https://api.kyne.com";
+    private static final String DEFAULT_BASE_URL = "https://api.shegerpay.com";
     
     private final String apiKey;
     private final String baseUrl;
@@ -33,17 +33,17 @@ public class Kyne {
     private final int timeout;
     
     /**
-     * Create a new Kyne client
+     * Create a new ShegerPay client
      * @param apiKey Your secret API key (sk_test_xxx or sk_live_xxx)
      */
-    public Kyne(String apiKey) {
+    public ShegerPay(String apiKey) {
         this(apiKey, DEFAULT_BASE_URL, 30000);
     }
     
     /**
-     * Create a new Kyne client with custom settings
+     * Create a new ShegerPay client with custom settings
      */
-    public Kyne(String apiKey, String baseUrl, int timeout) {
+    public ShegerPay(String apiKey, String baseUrl, int timeout) {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new IllegalArgumentException("API key is required");
         }
@@ -60,7 +60,7 @@ public class Kyne {
     /**
      * Verify a payment transaction
      */
-    public VerificationResult verify(String transactionId, double amount) throws KyneException {
+    public VerificationResult verify(String transactionId, double amount) throws ShegerPayException {
         return verify(transactionId, amount, null, null);
     }
     
@@ -68,10 +68,10 @@ public class Kyne {
      * Verify a payment transaction with provider
      */
     public VerificationResult verify(String transactionId, double amount, String provider, String merchantName) 
-            throws KyneException {
+            throws ShegerPayException {
         
         if (transactionId == null || transactionId.isEmpty()) {
-            throw new KyneException("Transaction ID is required");
+            throw new ShegerPayException("Transaction ID is required");
         }
         
         // Auto-detect provider
@@ -80,7 +80,7 @@ public class Kyne {
         }
         
         if (merchantName == null) {
-            merchantName = "Kyne Verification";
+            merchantName = "ShegerPay Verification";
         }
         
         Map<String, String> data = new HashMap<>();
@@ -96,7 +96,7 @@ public class Kyne {
     /**
      * Quick verification with auto-detected provider
      */
-    public VerificationResult quickVerify(String transactionId, double amount) throws KyneException {
+    public VerificationResult quickVerify(String transactionId, double amount) throws ShegerPayException {
         Map<String, String> data = new HashMap<>();
         data.put("transaction_id", transactionId);
         data.put("amount", String.valueOf(amount));
@@ -109,7 +109,7 @@ public class Kyne {
      * Make HTTP request
      */
     private Map<String, Object> doRequest(String method, String path, Map<String, String> data) 
-            throws KyneException {
+            throws ShegerPayException {
         try {
             URL url = new URL(baseUrl + path);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -117,7 +117,7 @@ public class Kyne {
             conn.setConnectTimeout(timeout);
             conn.setReadTimeout(timeout);
             conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-            conn.setRequestProperty("User-Agent", "Kyne-Java-SDK/" + VERSION);
+            conn.setRequestProperty("User-Agent", "ShegerPay-Java-SDK/" + VERSION);
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             
             if ("POST".equals(method) && data != null) {
@@ -151,18 +151,18 @@ public class Kyne {
             reader.close();
             
             if (status == 401) {
-                throw new KyneException("Invalid API key");
+                throw new ShegerPayException("Invalid API key");
             }
             if (status == 400) {
-                throw new KyneException("Validation error: " + response.toString());
+                throw new ShegerPayException("Validation error: " + response.toString());
             }
             
             // Simple JSON parsing (in production, use a proper JSON library)
             return parseJson(response.toString());
             
         } catch (Exception e) {
-            if (e instanceof KyneException) throw (KyneException) e;
-            throw new KyneException("Request failed: " + e.getMessage());
+            if (e instanceof ShegerPayException) throw (ShegerPayException) e;
+            throw new ShegerPayException("Request failed: " + e.getMessage());
         }
     }
     
@@ -244,8 +244,8 @@ public class Kyne {
         }
     }
     
-    public static class KyneException extends Exception {
-        public KyneException(String message) {
+    public static class ShegerPayException extends Exception {
+        public ShegerPayException(String message) {
             super(message);
         }
     }

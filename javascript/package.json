@@ -1,19 +1,19 @@
 {
-  "name": "@kyne/sdk",
+  "name": "@shegerpay/sdk",
   "version": "1.0.0",
-  "description": "Official JavaScript SDK for Kyne Payment Verification Gateway",
-  "main": "kyne.js",
-  "module": "kyne.js",
-  "types": "kyne.d.ts",
-  "author": "Kyne <support@kyne.com>",
+  "description": "Official JavaScript SDK for ShegerPay Payment Verification Gateway",
+  "main": "shegerpay.js",
+  "module": "shegerpay.js",
+  "types": "shegerpay.d.ts",
+  "author": "ShegerPay <support@shegerpay.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/black12-ag/Kyne-sdk.git"
+    "url": "https://github.com/black12-ag/ShegerPay-sdk.git"
   },
-  "homepage": "https://kyne.com/docs",
+  "homepage": "https://shegerpay.com/docs",
   "keywords": [
-    "kyne",
+    "shegerpay",
     "payment",
     "verification",
     "ethiopia",
@@ -25,8 +25,8 @@
     "node": ">=14.0.0"
   },
   "files": [
-    "kyne.js",
-    "kyne.d.ts",
+    "shegerpay.js",
+    "shegerpay.d.ts",
     "README.md"
   ]
 }

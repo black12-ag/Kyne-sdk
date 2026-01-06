@@ -1,14 +1,14 @@
-// Kyne Go SDK
-// Official Go SDK for Kyne Payment Verification Gateway
+// ShegerPay Go SDK
+// Official Go SDK for ShegerPay Payment Verification Gateway
 //
 // Usage:
-//   client := kyne.NewClient("sk_test_xxx")
-//   result, err := client.Verify(kyne.VerifyParams{
+//   client := shegerpay.NewClient("sk_test_xxx")
+//   result, err := client.Verify(shegerpay.VerifyParams{
 //       TransactionID: "FT123456",
 //       Amount: 100,
 //   })
 
-package kyne
+package shegerpay
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ import (
 
 const (
 	Version        = "1.0.0"
-	DefaultBaseURL = "https://api.kyne.com"
+	DefaultBaseURL = "https://api.shegerpay.com"
 )
 
 // Errors
@@ -56,7 +56,7 @@ type VerifyParams struct {
 	SubProvider   string
 }
 
-// Client is the Kyne API client
+// Client is the ShegerPay API client
 type Client struct {
 	apiKey  string
 	baseURL string
@@ -64,7 +64,7 @@ type Client struct {
 	http    *http.Client
 }
 
-// NewClient creates a new Kyne client
+// NewClient creates a new ShegerPay client
 func NewClient(apiKey string, opts ...ClientOption) (*Client, error) {
 	if apiKey == "" {
 		return nil, ErrMissingAPIKey
@@ -133,7 +133,7 @@ func (c *Client) Verify(params VerifyParams) (*VerificationResult, error) {
 	
 	merchantName := params.MerchantName
 	if merchantName == "" {
-		merchantName = "Kyne Verification"
+		merchantName = "ShegerPay Verification"
 	}
 	
 	data := url.Values{}
@@ -183,7 +183,7 @@ func (c *Client) request(method, path string, data url.Values, result interface{
 	}
 	
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	req.Header.Set("User-Agent", "Kyne-Go-SDK/1.0")
+	req.Header.Set("User-Agent", "ShegerPay-Go-SDK/1.0")
 	if method == "POST" {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}

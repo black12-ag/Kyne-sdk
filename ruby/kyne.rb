@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# Kyne Ruby SDK
-# Official Ruby SDK for Kyne Payment Verification Gateway
+# ShegerPay Ruby SDK
+# Official Ruby SDK for ShegerPay Payment Verification Gateway
 #
-# @author Kyne <support@kyne.com>
+# @author ShegerPay <support@shegerpay.com>
 # @version 1.0.0
 
 require 'net/http'
@@ -11,7 +11,7 @@ require 'uri'
 require 'json'
 require 'openssl'
 
-module Kyne
+module ShegerPay
   VERSION = '1.0.0'
   
   class Error < StandardError; end
@@ -37,11 +37,11 @@ module Kyne
     end
   end
   
-  # Kyne Payment Verification Client
+  # ShegerPay Payment Verification Client
   class Client
-    DEFAULT_BASE_URL = 'https://api.kyne.com'
+    DEFAULT_BASE_URL = 'https://api.shegerpay.com'
     
-    # Create a new Kyne client
+    # Create a new ShegerPay client
     #
     # @param api_key [String] Your secret API key (sk_test_xxx or sk_live_xxx)
     # @param options [Hash] Optional configuration
@@ -66,7 +66,7 @@ module Kyne
       transaction_id = params[:transaction_id]
       amount = params[:amount]
       provider = params[:provider]
-      merchant_name = params[:merchant_name] || 'Kyne Verification'
+      merchant_name = params[:merchant_name] || 'ShegerPay Verification'
       
       raise ValidationError, 'transaction_id is required' unless transaction_id
       raise ValidationError, 'amount is required' unless amount
@@ -110,7 +110,7 @@ module Kyne
     # Verify webhook signature
     #
     # @param payload [String] Raw request body
-    # @param signature [String] X-Kyne-Signature header
+    # @param signature [String] X-ShegerPay-Signature header
     # @param secret [String] Your webhook secret
     # @return [Boolean]
     def self.verify_webhook_signature(payload, signature, secret)
@@ -140,7 +140,7 @@ module Kyne
       end
       
       request['Authorization'] = "Bearer #{@api_key}"
-      request['User-Agent'] = 'Kyne-Ruby-SDK/1.0'
+      request['User-Agent'] = 'ShegerPay-Ruby-SDK/1.0'
       
       response = http.request(request)
       

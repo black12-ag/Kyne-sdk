@@ -1,9 +1,9 @@
 /**
- * Kyne Swift SDK
- * Official Swift SDK for Kyne Payment Verification Gateway
+ * ShegerPay Swift SDK
+ * Official Swift SDK for ShegerPay Payment Verification Gateway
  * 
  * Usage:
- *   let client = Kyne(apiKey: "sk_test_xxx")
+ *   let client = ShegerPay(apiKey: "sk_test_xxx")
  *   let result = try await client.verify(transactionId: "FT123456", amount: 100)
  */
 
@@ -12,7 +12,7 @@ import CommonCrypto
 
 // MARK: - Errors
 
-public enum KyneError: Error, LocalizedError {
+public enum ShegerPayError: Error, LocalizedError {
     case invalidApiKey
     case missingApiKey
     case authenticationFailed
@@ -65,21 +65,21 @@ public struct PaymentLink: Codable {
     }
 }
 
-// MARK: - Kyne Client
+// MARK: - ShegerPay Client
 
-public class Kyne {
+public class ShegerPay {
     private let apiKey: String
     private let baseURL: String
     private let mode: String
     private let session: URLSession
     
-    public init(apiKey: String, baseURL: String = "https://api.kyne.com") throws {
+    public init(apiKey: String, baseURL: String = "https://api.shegerpay.com") throws {
         guard !apiKey.isEmpty else {
-            throw KyneError.missingApiKey
+            throw ShegerPayError.missingApiKey
         }
         
         guard apiKey.hasPrefix("sk_test_") || apiKey.hasPrefix("sk_live_") else {
-            throw KyneError.invalidApiKey
+            throw ShegerPayError.invalidApiKey
         }
         
         self.apiKey = apiKey
@@ -106,7 +106,7 @@ public class Kyne {
             "provider": detectedProvider,
             "transaction_id": transactionId,
             "amount": String(amount),
-            "merchant_name": merchantName ?? "Kyne Verification"
+            "merchant_name": merchantName ?? "ShegerPay Verification"
         ]
         
         return try await request(method: "POST", path: "/api/v1/verify", params: params)
@@ -158,7 +158,7 @@ public class Kyne {
         request.httpMethod = method
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("Kyne-Swift-SDK/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("ShegerPay-Swift-SDK/1.0", forHTTPHeaderField: "User-Agent")
         
         if method == "POST" {
             let body = params.map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.value)" }
@@ -169,11 +169,11 @@ public class Kyne {
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw KyneError.invalidResponse
+            throw ShegerPayError.invalidResponse
         }
         
         if httpResponse.statusCode == 401 {
-            throw KyneError.authenticationFailed
+            throw ShegerPayError.authenticationFailed
         }
         
         return try JSONDecoder().decode(T.self, from: data)
@@ -193,11 +193,11 @@ public class Kyne {
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw KyneError.invalidResponse
+            throw ShegerPayError.invalidResponse
         }
         
         if httpResponse.statusCode == 401 {
-            throw KyneError.authenticationFailed
+            throw ShegerPayError.authenticationFailed
         }
         
         return try JSONDecoder().decode(T.self, from: data)

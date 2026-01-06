@@ -6,20 +6,20 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace Kyne.SDK
+namespace ShegerPay.SDK
 {
     /// <summary>
-    /// Kyne C# SDK
-    /// Official C# SDK for Kyne Payment Verification Gateway
+    /// ShegerPay C# SDK
+    /// Official C# SDK for ShegerPay Payment Verification Gateway
     /// 
     /// Usage:
-    ///   var client = new KyneClient("sk_test_xxx");
+    ///   var client = new ShegerPayClient("sk_test_xxx");
     ///   var result = await client.VerifyAsync("FT123456", 100);
     /// </summary>
-    public class KyneClient : IDisposable
+    public class ShegerPayClient : IDisposable
     {
         private const string Version = "1.0.0";
-        private const string DefaultBaseUrl = "https://api.kyne.com";
+        private const string DefaultBaseUrl = "https://api.shegerpay.com";
         
         private readonly string _apiKey;
         private readonly string _baseUrl;
@@ -27,15 +27,15 @@ namespace Kyne.SDK
         private readonly HttpClient _httpClient;
         
         /// <summary>
-        /// Create a new Kyne client
+        /// Create a new ShegerPay client
         /// </summary>
         /// <param name="apiKey">Your secret API key (sk_test_xxx or sk_live_xxx)</param>
-        public KyneClient(string apiKey) : this(apiKey, DefaultBaseUrl) { }
+        public ShegerPayClient(string apiKey) : this(apiKey, DefaultBaseUrl) { }
         
         /// <summary>
-        /// Create a new Kyne client with custom base URL
+        /// Create a new ShegerPay client with custom base URL
         /// </summary>
-        public KyneClient(string apiKey, string baseUrl)
+        public ShegerPayClient(string apiKey, string baseUrl)
         {
             if (string.IsNullOrEmpty(apiKey))
                 throw new ArgumentException("API key is required");
@@ -50,7 +50,7 @@ namespace Kyne.SDK
             _httpClient = new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", $"Kyne-CSharp-SDK/{Version}");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", $"ShegerPay-CSharp-SDK/{Version}");
         }
         
         /// <summary>
@@ -60,11 +60,11 @@ namespace Kyne.SDK
             string provider = null, string merchantName = null)
         {
             if (string.IsNullOrEmpty(transactionId))
-                throw new KyneException("Transaction ID is required");
+                throw new ShegerPayException("Transaction ID is required");
             
             // Auto-detect provider
             provider ??= transactionId.ToUpper().StartsWith("FT") ? "cbe" : "telebirr";
-            merchantName ??= "Kyne Verification";
+            merchantName ??= "ShegerPay Verification";
             
             var data = new Dictionary<string, string>
             {
@@ -123,10 +123,10 @@ namespace Kyne.SDK
             var responseBody = await response.Content.ReadAsStringAsync();
             
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                throw new KyneException("Invalid API key");
+                throw new ShegerPayException("Invalid API key");
             
             if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                throw new KyneException($"Validation error: {responseBody}");
+                throw new ShegerPayException($"Validation error: {responseBody}");
             
             try
             {
@@ -196,10 +196,10 @@ namespace Kyne.SDK
     }
     
     /// <summary>
-    /// Kyne SDK Exception
+    /// ShegerPay SDK Exception
     /// </summary>
-    public class KyneException : Exception
+    public class ShegerPayException : Exception
     {
-        public KyneException(string message) : base(message) { }
+        public ShegerPayException(string message) : base(message) { }
     }
 }

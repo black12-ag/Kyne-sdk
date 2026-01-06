@@ -1,13 +1,13 @@
 """
-=== Kyne Python SDK Examples ===
+=== ShegerPay Python SDK Examples ===
 Verify Ethiopian bank payments with just a few lines of code
 """
 
-from kyne import Kyne, KyneError, AuthenticationError
+from shegerpay import ShegerPay, ShegerPayError, AuthenticationError
 
 # Initialize client with your API key
 # Use sk_test_ for development, sk_live_ for production
-client = Kyne(api_key="sk_test_your_api_key_here")
+client = ShegerPay(api_key="sk_test_your_api_key_here")
 
 # =====================================================
 # Example 1: Quick Verify (Auto-detects CBE/Telebirr)
@@ -28,7 +28,7 @@ try:
     else:
         print(f"❌ Verification failed: {result.reason}")
         
-except KyneError as e:
+except ShegerPayError as e:
     print(f"Error: {e.message}")
 
 # =====================================================
@@ -47,7 +47,7 @@ try:
     print(f"Status: {result.status}")
     print(f"Valid: {result.valid}")
     
-except KyneError as e:
+except ShegerPayError as e:
     print(f"Error: {e.message}")
 
 # =====================================================
@@ -64,7 +64,7 @@ try:
     
     print(f"Result: {result.status}")
     
-except KyneError as e:
+except ShegerPayError as e:
     print(f"Error: {e.message}")
 
 # =====================================================
@@ -82,7 +82,7 @@ try:
     if not result.valid:
         print(f"Expected failure: {result.reason}")
         
-except KyneError as e:
+except ShegerPayError as e:
     print(f"Error: {e.message}")
 
 # =====================================================
@@ -96,7 +96,7 @@ try:
     for tx in transactions[:5]:
         print(f"  - {tx.external_id}: {tx.amount} ETB ({tx.status})")
         
-except KyneError as e:
+except ShegerPayError as e:
     print(f"Error: {e.message}")
 
 # =====================================================
@@ -106,7 +106,7 @@ except KyneError as e:
 print("\n=== Error Handling ===")
 try:
     # This will fail with invalid API key
-    bad_client = Kyne(api_key="invalid_key")
+    bad_client = ShegerPay(api_key="invalid_key")
 except AuthenticationError as e:
     print(f"Authentication error: {e.message}")
 
@@ -117,16 +117,16 @@ except AuthenticationError as e:
 print("\n=== Flask Integration Example ===")
 print("""
 from flask import Flask, request, jsonify
-from kyne import Kyne
+from shegerpay import ShegerPay
 
 app = Flask(__name__)
-kyne = Kyne(api_key="sk_live_xxx")
+shegerpay = ShegerPay(api_key="sk_live_xxx")
 
 @app.route('/verify-payment', methods=['POST'])
 def verify_payment():
     data = request.json
     
-    result = kyne.verify(
+    result = shegerpay.verify(
         transaction_id=data['transaction_id'],
         amount=data['amount'],
         provider=data.get('provider')

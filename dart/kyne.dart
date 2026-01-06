@@ -1,11 +1,11 @@
-/// Kyne Dart/Flutter SDK
-/// Official Dart SDK for Kyne Payment Verification Gateway
+/// ShegerPay Dart/Flutter SDK
+/// Official Dart SDK for ShegerPay Payment Verification Gateway
 ///
 /// Usage:
-///   final client = Kyne('sk_test_xxx');
+///   final client = ShegerPay('sk_test_xxx');
 ///   final result = await client.verify('FT123456', 100.0);
 
-library kyne;
+library shegerpay;
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -14,18 +14,18 @@ import 'package:crypto/crypto.dart';
 
 // ---------- Exceptions ----------
 
-class KyneException implements Exception {
+class ShegerPayException implements Exception {
   final String message;
-  KyneException(this.message);
+  ShegerPayException(this.message);
   @override
-  String toString() => 'KyneException: $message';
+  String toString() => 'ShegerPayException: $message';
 }
 
-class AuthenticationException extends KyneException {
+class AuthenticationException extends ShegerPayException {
   AuthenticationException(String message) : super(message);
 }
 
-class ValidationException extends KyneException {
+class ValidationException extends ShegerPayException {
   ValidationException(String message) : super(message);
 }
 
@@ -100,20 +100,20 @@ class PaymentLink {
   }
 }
 
-// ---------- Kyne Client ----------
+// ---------- ShegerPay Client ----------
 
-class Kyne {
+class ShegerPay {
   final String apiKey;
   final String baseUrl;
   final String mode;
   final http.Client _client;
 
-  /// Create a new Kyne client
+  /// Create a new ShegerPay client
   ///
   /// [apiKey] Your secret API key (sk_test_xxx or sk_live_xxx)
   /// [baseUrl] Optional custom API base URL
-  Kyne(this.apiKey, {String? baseUrl})
-      : baseUrl = (baseUrl ?? 'https://api.kyne.com').replaceAll(RegExp(r'/$'), ''),
+  ShegerPay(this.apiKey, {String? baseUrl})
+      : baseUrl = (baseUrl ?? 'https://api.shegerpay.com').replaceAll(RegExp(r'/$'), ''),
         mode = apiKey.startsWith('sk_test_') ? 'test' : 'live',
         _client = http.Client() {
     if (apiKey.isEmpty) {
@@ -145,7 +145,7 @@ class Kyne {
       'provider': detectedProvider,
       'transaction_id': transactionId,
       'amount': amount.toString(),
-      'merchant_name': merchantName ?? 'Kyne Verification',
+      'merchant_name': merchantName ?? 'ShegerPay Verification',
     };
 
     final response = await _request('POST', '/api/v1/verify', params);
@@ -239,7 +239,7 @@ class Kyne {
   Map<String, String> _headers() => {
     'Authorization': 'Bearer $apiKey',
     'Content-Type': 'application/x-www-form-urlencoded',
-    'User-Agent': 'Kyne-Dart-SDK/1.0',
+    'User-Agent': 'ShegerPay-Dart-SDK/1.0',
   };
 
   Map<String, dynamic> _handleResponse(http.Response response) {

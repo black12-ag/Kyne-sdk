@@ -1,13 +1,13 @@
 /**
- * Kyne Kotlin SDK
- * Official Kotlin SDK for Kyne Payment Verification Gateway
+ * ShegerPay Kotlin SDK
+ * Official Kotlin SDK for ShegerPay Payment Verification Gateway
  * 
  * Usage:
- *   val client = Kyne("sk_test_xxx")
+ *   val client = ShegerPay("sk_test_xxx")
  *   val result = client.verify("FT123456", 100.0)
  */
 
-package com.kyne.sdk
+package com.shegerpay.sdk
 
 import java.net.URL
 import java.net.HttpURLConnection
@@ -16,8 +16,8 @@ import javax.crypto.spec.SecretKeySpec
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-class KyneException(message: String) : Exception(message)
-class AuthenticationException(message: String) : KyneException(message)
+class ShegerPayException(message: String) : Exception(message)
+class AuthenticationException(message: String) : ShegerPayException(message)
 
 @Serializable
 data class VerificationResult(
@@ -31,9 +31,9 @@ data class VerificationResult(
     val payer: String? = null
 )
 
-class Kyne(
+class ShegerPay(
     private val apiKey: String,
-    private val baseUrl: String = "https://api.kyne.com"
+    private val baseUrl: String = "https://api.shegerpay.com"
 ) {
     private val mode: String
     
@@ -61,7 +61,7 @@ class Kyne(
             "provider" to detectedProvider,
             "transaction_id" to transactionId,
             "amount" to amount.toString(),
-            "merchant_name" to (merchantName ?: "Kyne Verification")
+            "merchant_name" to (merchantName ?: "ShegerPay Verification")
         )
         
         return request("POST", "/api/v1/verify", params)
@@ -85,7 +85,7 @@ class Kyne(
         conn.requestMethod = method
         conn.setRequestProperty("Authorization", "Bearer $apiKey")
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        conn.setRequestProperty("User-Agent", "Kyne-Kotlin-SDK/1.0")
+        conn.setRequestProperty("User-Agent", "ShegerPay-Kotlin-SDK/1.0")
         conn.connectTimeout = 30000
         conn.readTimeout = 30000
         
@@ -127,7 +127,7 @@ class Kyne(
 }
 
 // Extension for coroutines (optional)
-suspend fun Kyne.verifyAsync(
+suspend fun ShegerPay.verifyAsync(
     transactionId: String, 
     amount: Double
 ): VerificationResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
