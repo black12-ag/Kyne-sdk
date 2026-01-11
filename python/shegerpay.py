@@ -866,6 +866,81 @@ class ShegerPay:
         """Check Gmail forwarding bot status."""
         return self._request('GET', '/api/v1/international/gmail/status')
 
+    # =========================================================================
+    # MONITORING & HEALTH
+    # =========================================================================
+    
+    def get_health(self) -> Dict[str, Any]:
+        """Get detailed health check including database, providers, encryption status."""
+        return self._request('GET', '/api/v1/monitoring/health')
+    
+    def get_provider_status(self) -> Dict[str, Any]:
+        """Get status and uptime of all payment providers (CBE, Telebirr, etc.)."""
+        return self._request('GET', '/api/v1/monitoring/providers')
+    
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get API usage metrics - verification counts, rate limits, feature access."""
+        return self._request('GET', '/api/v1/monitoring/metrics')
+    
+    def get_uptime(self) -> Dict[str, Any]:
+        """Get historical uptime data and last incident information."""
+        return self._request('GET', '/api/v1/monitoring/uptime')
+
+    # =========================================================================
+    # NOTIFICATIONS
+    # =========================================================================
+    
+    def get_notification_settings(self) -> Dict[str, Any]:
+        """Get email and Telegram notification preferences."""
+        return self._request('GET', '/api/v1/notifications/settings')
+    
+    def configure_telegram(
+        self,
+        bot_token: str,
+        chat_id: str,
+        notify_on_payment: bool = True,
+        notify_on_security: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Configure Telegram notifications.
+        
+        Args:
+            bot_token: Your Telegram bot token from @BotFather
+            chat_id: Chat ID to send notifications to
+            notify_on_payment: Notify on payment verification
+            notify_on_security: Notify on security events (2FA, login, etc.)
+        
+        Returns:
+            Configuration result
+        
+        Example:
+            client.configure_telegram(
+                bot_token='123456:ABC...',
+                chat_id='-1001234567890'
+            )
+        """
+        self._session.headers['Content-Type'] = 'application/json'
+        data = {
+            'bot_token': bot_token,
+            'chat_id': chat_id,
+            'notify_on_payment': notify_on_payment,
+            'notify_on_security': notify_on_security
+        }
+        response = self._request('POST', '/api/v1/notifications/telegram/configure', data=data)
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+    
+    def test_telegram(self) -> Dict[str, Any]:
+        """Send a test Telegram notification."""
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request('POST', '/api/v1/notifications/telegram/test', data={})
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+    
+    def disable_telegram(self) -> Dict[str, Any]:
+        """Disable Telegram notifications."""
+        return self._request('DELETE', '/api/v1/notifications/telegram')
+
 
 # Convenience function
 def verify(api_key: str, transaction_id: str, amount: float, **kwargs) -> VerificationResult:

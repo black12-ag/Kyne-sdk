@@ -1,0 +1,178 @@
+# ShegerPay TypeScript SDK
+
+Official TypeScript SDK for ShegerPay Payment Verification Gateway.
+
+## Installation
+
+```bash
+npm install @shegerpay/sdk
+# or
+yarn add @shegerpay/sdk
+```
+
+## Quick Start
+
+```typescript
+import { ShegerPay } from "@shegerpay/sdk";
+
+// Initialize client
+const client = new ShegerPay("sk_test_xxx");
+
+// Verify a payment
+const result = await client.verify({
+  transactionId: "FT24352648751234",
+  amount: 100,
+});
+
+if (result.valid) {
+  console.log("Payment verified!");
+}
+```
+
+## Features
+
+- ✅ Full TypeScript support with complete type definitions
+- ✅ Ethiopian banks (CBE, Telebirr, Awash, BoA, etc.)
+- ✅ Auto provider detection
+- ✅ Crypto payments (USDT, BTC, ETH)
+- ✅ Payment links with QR codes
+- ✅ Webhooks
+- ✅ Telegram notifications
+- ✅ Monitoring & health checks
+
+## API Reference
+
+### Verification
+
+```typescript
+// Verify with auto-detection
+const result = await client.verify({
+  transactionId: "FT24352648751234",
+  amount: 100,
+});
+
+// Quick verify
+const result = await client.quickVerify("FT24352648751234", 100);
+```
+
+### Payment Links
+
+```typescript
+// Create payment link
+const link = await client.createPaymentLink({
+  title: "Order #123",
+  amount: 500,
+  currency: "ETB",
+});
+console.log(link.url); // https://pay.shegerpay.com/abc123
+console.log(link.qrCode); // data:image/png;base64,...
+
+// List links
+const links = await client.listPaymentLinks();
+```
+
+### Crypto Payments
+
+```typescript
+// Get prices
+const prices = await client.getCryptoPrices();
+console.log(prices.BTC);
+
+// Create crypto payment
+const payment = await client.createCryptoPayment({
+  amountUsd: 50,
+  currency: "USDT",
+  walletAddress: "TJCnKsPa7y5okkXvQAidZBzqx3QyQ6sxMW",
+});
+
+// Verify crypto payment
+const result = await client.verifyCryptoPayment(payment.referenceId);
+```
+
+### Webhooks
+
+```typescript
+// Create webhook
+const webhook = await client.createWebhook({
+  url: "https://yoursite.com/webhook",
+  events: ["payment.verified", "payment.failed"],
+});
+console.log(webhook.secret); // Save this!
+
+// Verify signature (in your webhook handler)
+import { verifyWebhookSignature } from "@shegerpay/sdk";
+
+const isValid = await verifyWebhookSignature(
+  rawBody,
+  req.headers["x-shegerpay-signature"],
+  webhookSecret
+);
+```
+
+### Monitoring
+
+```typescript
+// Health check
+const health = await client.getHealth();
+console.log(health.status); // 'healthy'
+
+// Provider status
+const providers = await client.getProviderStatus();
+console.log(providers.providersOnline); // '8/8'
+```
+
+### Telegram Notifications
+
+```typescript
+// Configure Telegram
+await client.configureTelegram({
+  botToken: "123456:ABC...",
+  chatId: "-1001234567890",
+});
+
+// Test notification
+await client.testTelegram();
+
+// Disable
+await client.disableTelegram();
+```
+
+## Error Handling
+
+```typescript
+import {
+  ShegerPay,
+  ShegerPayError,
+  AuthenticationError,
+  ValidationError,
+} from "@shegerpay/sdk";
+
+try {
+  const result = await client.verify({ transactionId: "FT123", amount: 100 });
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.log("Invalid API key");
+  } else if (error instanceof ValidationError) {
+    console.log("Validation failed:", error.message);
+  } else if (error instanceof ShegerPayError) {
+    console.log("Error:", error.errorCode, error.message);
+    console.log("Suggestion:", error.suggestion);
+  }
+}
+```
+
+## Test Mode
+
+```typescript
+// Test mode (sk_test_xxx) - simulates verification
+const testClient = new ShegerPay("sk_test_xxx");
+console.log(testClient.mode); // 'test'
+
+// Live mode (sk_live_xxx) - real verification
+const liveClient = new ShegerPay("sk_live_xxx");
+console.log(liveClient.mode); // 'live'
+```
+
+## License
+
+MIT

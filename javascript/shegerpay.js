@@ -847,6 +847,91 @@ class ShegerPay {
         return this._request('GET', '/api/v1/subscriptions/usage');
     }
     
+    // ============================================
+    // 📊 MONITORING & HEALTH
+    // ============================================
+    
+    /**
+     * Get detailed health check
+     * @returns {Promise<Object>} Service health status including database, providers, encryption
+     */
+    async getHealth() {
+        return this._request('GET', '/api/v1/monitoring/health');
+    }
+    
+    /**
+     * Get provider status and uptime
+     * @returns {Promise<Object>} Status of all payment providers (CBE, Telebirr, etc.)
+     */
+    async getProviderStatus() {
+        return this._request('GET', '/api/v1/monitoring/providers');
+    }
+    
+    /**
+     * Get API usage metrics
+     * @returns {Promise<Object>} Verification counts, rate limits, feature access
+     */
+    async getMetrics() {
+        return this._request('GET', '/api/v1/monitoring/metrics');
+    }
+    
+    /**
+     * Get system uptime data
+     * @returns {Promise<Object>} Historical uptime and last incident
+     */
+    async getUptime() {
+        return this._request('GET', '/api/v1/monitoring/uptime');
+    }
+    
+    // ============================================
+    // 🔔 NOTIFICATIONS
+    // ============================================
+    
+    /**
+     * Get notification settings
+     * @returns {Promise<Object>} Email and Telegram notification preferences
+     */
+    async getNotificationSettings() {
+        return this._request('GET', '/api/v1/notifications/settings');
+    }
+    
+    /**
+     * Configure Telegram notifications
+     * @param {Object} config - Telegram configuration
+     * @param {string} config.botToken - Your Telegram bot token from @BotFather
+     * @param {string} config.chatId - Chat ID to send notifications to
+     * @returns {Promise<Object>} Configuration result
+     */
+    async configureTelegram(config) {
+        const { botToken, chatId, notifyOnPayment, notifyOnSecurity } = config;
+        
+        if (!botToken) throw new ValidationError('botToken is required');
+        if (!chatId) throw new ValidationError('chatId is required');
+        
+        return this._request('POST', '/api/v1/notifications/telegram/configure', {
+            bot_token: botToken,
+            chat_id: chatId,
+            notify_on_payment: notifyOnPayment !== false,
+            notify_on_security: notifyOnSecurity !== false
+        }, true);
+    }
+    
+    /**
+     * Send test Telegram notification
+     * @returns {Promise<Object>} Test result
+     */
+    async testTelegram() {
+        return this._request('POST', '/api/v1/notifications/telegram/test', {}, true);
+    }
+    
+    /**
+     * Disable Telegram notifications
+     * @returns {Promise<Object>} Disable result
+     */
+    async disableTelegram() {
+        return this._request('DELETE', '/api/v1/notifications/telegram');
+    }
+    
     /**
      * Internal request method
      */
