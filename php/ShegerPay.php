@@ -1,10 +1,10 @@
 <?php
 /**
- * ShegerPay PHP SDK v2.1.0
+ * ShegerPay PHP SDK v2.2.0
  * Official PHP SDK for ShegerPay Payment Verification Gateway
- * 
+ *
  * @package ShegerPay
- * @version 2.1.0
+ * @version 2.2.0
  * @author ShegerPay <support@shegerpay.com>
  * @license MIT
  */
@@ -76,38 +76,39 @@ class ShegerPay {
         $senderAccount = $params['sender_account'] ?? null;
         
         if (!$transactionId) throw new ValidationException('transaction_id is required');
-        if (!$amount) throw new ValidationException('amount is required');
-        
+
         if (!$provider) {
             $provider = stripos($transactionId, 'cs.bankofabyssinia.com/slip/?trx=') !== false ? 'boa' : null;
         }
         if (!$provider) {
             throw new ValidationException('provider is required for ambiguous transaction references. Pass provider explicitly or use quickVerify().');
         }
-        
+
         $data = [
             'provider' => $provider,
             'transaction_id' => $transactionId,
-            'amount' => $amount,
             'merchant_name' => $merchantName,
         ];
-        
+        if ($amount !== null) {
+            $data['amount'] = $amount;
+        }
+
         if (isset($params['sub_provider'])) {
             $data['sub_provider'] = $params['sub_provider'];
         }
         if ($senderAccount) {
             $data['sender_account'] = $senderAccount;
         }
-        
+
         $response = $this->request('POST', '/api/v1/verify', $data);
         return new VerificationResult($response);
     }
-    
-    public function quickVerify(string $transactionId, float $amount, ?string $expectedProvider = null, ?string $senderAccount = null): VerificationResult {
-        $payload = [
-            'transaction_id' => $transactionId,
-            'amount' => $amount,
-        ];
+
+    public function quickVerify(string $transactionId, ?float $amount = null, ?string $expectedProvider = null, ?string $senderAccount = null): VerificationResult {
+        $payload = ['transaction_id' => $transactionId];
+        if ($amount !== null) {
+            $payload['amount'] = $amount;
+        }
         if ($expectedProvider) {
             $payload['expected_provider'] = $expectedProvider;
         }
@@ -117,7 +118,26 @@ class ShegerPay {
         $response = $this->request('POST', '/api/v1/quick-verify', $payload);
         return new VerificationResult($response);
     }
-    
+
+    public function verifyImage(array $params): VerificationResult {
+        $image = $params['image'] ?? null; // base64 or URL
+        $provider = $params['provider'] ?? null;
+        $amount = $params['amount'] ?? null;
+        $merchantName = $params['merchant_name'] ?? 'ShegerPay Verification';
+
+        if (!$image) throw new ValidationException('image is required (base64 or URL)');
+
+        $payload = [
+            'image' => $image,
+            'provider' => $provider,
+            'merchant_name' => $merchantName,
+        ];
+        if ($amount !== null) $payload['amount'] = $amount;
+
+        $response = $this->request('POST', '/api/v1/verify/image', $payload, true);
+        return new VerificationResult($response);
+    }
+
     public function getHistory(int $limit = 50): array {
         return $this->request('GET', '/api/v1/history');
     }
@@ -179,6 +199,20 @@ class ShegerPay {
             'amount' => $params['amount'],
             'currency' => $params['currency'] ?? 'ETB',
             'description' => $params['description'] ?? null,
+            'amount_mode' => $params['amount_mode'] ?? null,
+            'amount_options' => $params['amount_options'] ?? null,
+            'min_amount' => $params['min_amount'] ?? null,
+            'max_amount' => $params['max_amount'] ?? null,
+            'promo_code_ids' => $params['promo_code_ids'] ?? null,
+            'payment_method_layout' => $params['payment_method_layout'] ?? null,
+            'allow_quantity' => $params['allow_quantity'] ?? null,
+            'max_quantity' => $params['max_quantity'] ?? null,
+            'redirect_url' => $params['redirect_url'] ?? null,
+            'webhook_url' => $params['webhook_url'] ?? null,
+            'business_name' => $params['business_name'] ?? null,
+            'merchant_logo_url' => $params['merchant_logo_url'] ?? null,
+            'theme_color' => $params['theme_color'] ?? null,
+            'hide_branding' => $params['hide_branding'] ?? null,
             'enable_cbe' => $params['enable_cbe'] ?? true,
             'enable_telebirr' => $params['enable_telebirr'] ?? true,
             'enable_crypto' => $params['enable_crypto'] ?? false,
@@ -189,9 +223,81 @@ class ShegerPay {
     public function listPaymentLinks(): array {
         return $this->request('GET', '/api/v1/payment-links/');
     }
+
+    public function getPaymentLinkOrderStatus(string $shortCode, string $orderId): array {
+        return $this->request('GET', '/api/v1/payment-links/' . $shortCode . '/orders/' . $orderId . '/status');
+    }
     
     public function deletePaymentLink(string $linkId): array {
         return $this->request('DELETE', '/api/v1/payment-links/' . $linkId);
+    }
+
+    public function createPromoCode(array $params): array {
+        return $this->requestJson('POST', '/api/v1/promo-codes/', $this->promoPayload($params));
+    }
+
+    public function listPromoCodes(): array {
+        return $this->request('GET', '/api/v1/promo-codes/');
+    }
+
+    public function updatePromoCode(string $codeId, array $params): array {
+        return $this->requestJson('PATCH', '/api/v1/promo-codes/' . $codeId, $this->promoPayload($params));
+    }
+
+    public function deletePromoCode(string $codeId): array {
+        return $this->request('DELETE', '/api/v1/promo-codes/' . $codeId);
+    }
+
+    public function validatePromoCode(array $params): array {
+        return $this->requestJson('POST', '/api/v1/promo-codes/validate', [
+            'code' => $params['code'],
+            'amount' => $params['amount'],
+            'link_id' => $params['link_id'] ?? null,
+            'provider' => $params['provider'] ?? null,
+            'customer_identifier' => $params['customer_identifier'] ?? null,
+        ]);
+    }
+
+    public function redeemPromoCode(array $params): array {
+        return $this->requestJson('POST', '/api/v1/promo-codes/redeem', [
+            'code' => $params['code'],
+            'amount' => $params['amount'],
+            'link_id' => $params['link_id'] ?? null,
+            'provider' => $params['provider'] ?? null,
+            'customer_identifier' => $params['customer_identifier'] ?? null,
+            'transaction_id' => $params['transaction_id'],
+            'order_id' => $params['order_id'] ?? null,
+            'idempotency_key' => $params['idempotency_key'] ?? null,
+        ]);
+    }
+
+    public function applyPaymentLinkCoupon(string $shortCode, string $code, ?float $amount = null, int $quantity = 1, ?string $provider = null, ?string $customerIdentifier = null): array {
+        return $this->requestJson('POST', '/api/v1/payment-links/' . $shortCode . '/apply-coupon', [
+            'code' => $code,
+            'amount' => $amount,
+            'quantity' => $quantity,
+            'provider' => $provider,
+            'customer_identifier' => $customerIdentifier,
+        ]);
+    }
+
+    private function promoPayload(array $params): array {
+        return array_filter([
+            'code' => $params['code'] ?? null,
+            'discount_type' => $params['discount_type'] ?? 'percent',
+            'discount_value' => $params['discount_value'] ?? ($params['discount_percent'] ?? null),
+            'discount_percent' => $params['discount_percent'] ?? null,
+            'max_discount_amount' => $params['max_discount_amount'] ?? null,
+            'min_order_amount' => $params['min_order_amount'] ?? null,
+            'max_uses' => $params['max_uses'] ?? null,
+            'max_uses_per_customer' => $params['max_uses_per_customer'] ?? null,
+            'starts_at' => $params['starts_at'] ?? null,
+            'expires_at' => $params['expires_at'] ?? null,
+            'active' => $params['active'] ?? null,
+            'applies_to_link_ids' => $params['applies_to_link_ids'] ?? null,
+            'allowed_providers' => $params['allowed_providers'] ?? null,
+            'metadata' => $params['metadata'] ?? null,
+        ], fn($value) => $value !== null);
     }
     
     // ============================================
@@ -206,8 +312,21 @@ class ShegerPay {
         return $this->request('GET', '/api/v1/webhooks/');
     }
     
-    public function testWebhook(string $webhookId): array {
-        return $this->request('POST', '/api/v1/webhooks/test?webhook_id=' . $webhookId);
+    public function testWebhook(string $webhookId, string $eventType = 'payment_link.order.verified'): array {
+        return $this->request('POST', '/api/v1/webhooks/test?webhook_id=' . urlencode($webhookId) . '&event_type=' . urlencode($eventType));
+    }
+
+    public function getWebhookEvents(): array {
+        return $this->request('GET', '/api/v1/webhooks/events');
+    }
+
+    public function getWebhookLogs(?string $webhookId = null, ?string $status = null, int $limit = 50): array {
+        $query = array_filter([
+            'webhook_id' => $webhookId,
+            'status' => $status,
+            'limit' => $limit,
+        ], fn($value) => $value !== null && $value !== '');
+        return $this->request('GET', '/api/v1/webhooks/logs?' . http_build_query($query));
     }
     
     public function deleteWebhook(string $webhookId): array {
@@ -346,39 +465,43 @@ class ShegerPay {
     // INTERNAL METHODS
     // ============================================
     
-    private function request(string $method, string $path, array $data = []): array {
+    private function request(string $method, string $path, array $data = [], bool $asJson = false): array {
         $url = $this->baseUrl . $path;
-        
+
+        $contentType = $asJson ? 'application/json' : 'application/x-www-form-urlencoded';
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'X-API-Key: ' . $this->apiKey,
-            'Content-Type: application/x-www-form-urlencoded',
-            'User-Agent: ShegerPay-PHP-SDK/2.1',
+            'Content-Type: ' . $contentType,
+            'User-Agent: ShegerPay-PHP-SDK/2.2',
         ]);
-        
+
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $asJson ? json_encode($data) : http_build_query($data));
+        } elseif (in_array($method, ['PATCH', 'PUT'], true)) {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $asJson ? json_encode($data) : http_build_query($data));
         } elseif ($method === 'DELETE') {
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
         }
-        
+
         $response = curl_exec($ch);
         $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        
+
         if ($statusCode === 401) throw new AuthenticationException('Invalid API key');
         if ($statusCode === 400) {
             $error = json_decode($response, true);
             throw new ValidationException($error['detail'] ?? 'Validation error');
         }
-        
+
         return json_decode($response, true) ?? [];
     }
-    
+
     private function requestJson(string $method, string $path, array $data): array {
         $url = $this->baseUrl . $path;
         
@@ -394,6 +517,9 @@ class ShegerPay {
         
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        } elseif (in_array($method, ['PATCH', 'PUT'], true)) {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         }
         
@@ -413,6 +539,20 @@ class ShegerPay {
     public static function verifyWebhookSignature(string $payload, string $signature, string $secret): bool {
         $expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
         return hash_equals($expected, $signature);
+    }
+
+    public static function verifyRedirectSignature(array $params, string $signature, string $secret): bool {
+        $amount = number_format((float) ($params['amount'] ?? 0), 2, '.', '');
+        $payload = implode('|', [
+            $params['checkout_session_id'] ?? $params['checkoutSessionId'] ?? '',
+            $params['order_id'] ?? $params['orderId'] ?? '',
+            $params['short_code'] ?? $params['shortCode'] ?? '',
+            $amount,
+            $params['currency'] ?? 'ETB',
+            $params['status'] ?? 'paid',
+        ]);
+        $expected = hash_hmac('sha256', $payload, $secret);
+        return hash_equals($expected, str_replace('sha256=', '', $signature));
     }
 }
 
@@ -488,47 +628,46 @@ class ShegerPay {
         if (!$transactionId) {
             throw new ValidationException('transaction_id is required');
         }
-        if (!$amount) {
-            throw new ValidationException('amount is required');
-        }
-        
+
         if (!$provider) {
             $provider = stripos($transactionId, 'cs.bankofabyssinia.com/slip/?trx=') !== false ? 'boa' : null;
         }
         if (!$provider) {
             throw new ValidationException('provider is required for ambiguous transaction references. Pass provider explicitly or use quickVerify().');
         }
-        
+
         $data = [
             'provider' => $provider,
             'transaction_id' => $transactionId,
-            'amount' => $amount,
             'merchant_name' => $merchantName,
         ];
-        
+        if ($amount !== null) {
+            $data['amount'] = $amount;
+        }
+
         if (isset($params['sub_provider'])) {
             $data['sub_provider'] = $params['sub_provider'];
         }
         if ($senderAccount) {
             $data['sender_account'] = $senderAccount;
         }
-        
+
         $response = $this->request('POST', '/api/v1/verify', $data);
         return new VerificationResult($response);
     }
-    
+
     /**
      * Quick verification with auto-detected provider
-     * 
+     *
      * @param string $transactionId Bank transaction reference
-     * @param float $amount Expected amount
+     * @param float|null $amount Expected amount (optional for lookup-only)
      * @return VerificationResult
      */
-    public function quickVerify(string $transactionId, float $amount, ?string $expectedProvider = null, ?string $senderAccount = null): VerificationResult {
-        $payload = [
-            'transaction_id' => $transactionId,
-            'amount' => $amount,
-        ];
+    public function quickVerify(string $transactionId, ?float $amount = null, ?string $expectedProvider = null, ?string $senderAccount = null): VerificationResult {
+        $payload = ['transaction_id' => $transactionId];
+        if ($amount !== null) {
+            $payload['amount'] = $amount;
+        }
         if ($expectedProvider) {
             $payload['expected_provider'] = $expectedProvider;
         }
@@ -540,8 +679,33 @@ class ShegerPay {
     }
     
     /**
+     * Verify a payment from a screenshot image
+     *
+     * @param array $params image (base64 or URL), provider, amount, merchant_name
+     * @return VerificationResult
+     */
+    public function verifyImage(array $params): VerificationResult {
+        $image = $params['image'] ?? null; // base64 or URL
+        $provider = $params['provider'] ?? null;
+        $amount = $params['amount'] ?? null;
+        $merchantName = $params['merchant_name'] ?? 'ShegerPay Verification';
+
+        if (!$image) throw new ValidationException('image is required (base64 or URL)');
+
+        $payload = [
+            'image' => $image,
+            'provider' => $provider,
+            'merchant_name' => $merchantName,
+        ];
+        if ($amount !== null) $payload['amount'] = $amount;
+
+        $response = $this->request('POST', '/api/v1/verify/image', $payload, true);
+        return new VerificationResult($response);
+    }
+
+    /**
      * Get transaction history
-     * 
+     *
      * @param int $limit Maximum number of transactions
      * @return array
      */
@@ -552,37 +716,38 @@ class ShegerPay {
     /**
      * Make API request
      */
-    private function request(string $method, string $path, array $data = []): array {
+    private function request(string $method, string $path, array $data = [], bool $asJson = false): array {
         $url = $this->baseUrl . $path;
-        
+
+        $contentType = $asJson ? 'application/json' : 'application/x-www-form-urlencoded';
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'X-API-Key: ' . $this->apiKey,
-            'Content-Type: application/x-www-form-urlencoded',
-            'User-Agent: ShegerPay-PHP-SDK/1.0',
+            'Content-Type: ' . $contentType,
+            'User-Agent: ShegerPay-PHP-SDK/2.2',
         ]);
-        
+
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $asJson ? json_encode($data) : http_build_query($data));
         }
-        
+
         $response = curl_exec($ch);
         $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        
+
         if ($statusCode === 401) {
             throw new AuthenticationException('Invalid API key');
         }
-        
+
         if ($statusCode === 400) {
             $error = json_decode($response, true);
             throw new ValidationException($error['detail'] ?? 'Validation error');
         }
-        
+
         return json_decode($response, true) ?? [];
     }
     
@@ -597,5 +762,19 @@ class ShegerPay {
     public static function verifyWebhookSignature(string $payload, string $signature, string $secret): bool {
         $expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
         return hash_equals($expected, $signature);
+    }
+
+    public static function verifyRedirectSignature(array $params, string $signature, string $secret): bool {
+        $amount = number_format((float) ($params['amount'] ?? 0), 2, '.', '');
+        $payload = implode('|', [
+            $params['checkout_session_id'] ?? $params['checkoutSessionId'] ?? '',
+            $params['order_id'] ?? $params['orderId'] ?? '',
+            $params['short_code'] ?? $params['shortCode'] ?? '',
+            $amount,
+            $params['currency'] ?? 'ETB',
+            $params['status'] ?? 'paid',
+        ]);
+        $expected = hash_hmac('sha256', $payload, $secret);
+        return hash_equals($expected, str_replace('sha256=', '', $signature));
     }
 }

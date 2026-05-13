@@ -114,13 +114,13 @@ class ShegerPay:
         self._session.headers.update({
             'X-API-Key': api_key,
             'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'ShegerPay-Python-SDK/1.0'
+            'User-Agent': 'ShegerPay-Python-SDK/2.2.0'
         })
     
     def verify(
         self,
         transaction_id: str,
-        amount: float,
+        amount: Optional[float] = None,
         provider: str = None,
         merchant_name: str = None,
         sub_provider: str = None,
@@ -206,38 +206,21 @@ class ShegerPay:
 
     def verify_image(
         self,
-        screenshot_path: str,
-        amount: float,
-        provider: str = None,
-        merchant_name: str = None,
-        transaction_id: str = None,
-        phone_number: str = None,
-        sender_account: str = None
-    ) -> VerificationResult:
-        """
-        Verify a receipt screenshot/PDF using OCR.
-        """
-        data = {'amount': amount}
-        if provider: data['provider'] = provider
-        if merchant_name: data['merchant_name'] = merchant_name
-        if transaction_id: data['transaction_id'] = transaction_id
-        if phone_number: data['phone_number'] = phone_number
-        if sender_account: data['sender_account'] = sender_account
-
-        old_content_type = self._session.headers.pop('Content-Type', None)
-        try:
-            with open(screenshot_path, 'rb') as screenshot:
-                response = self._session.post(
-                    f"{self.base_url}/api/v1/verify-image",
-                    data=data,
-                    files={'screenshot': screenshot},
-                    timeout=self.timeout
-                )
-            parsed = self._handle_response(response)
-            return VerificationResult.from_response(parsed)
-        finally:
-            if old_content_type:
-                self._session.headers['Content-Type'] = old_content_type
+        image: str,  # base64 encoded or URL
+        provider: Optional[str] = None,
+        amount: Optional[float] = None,
+        merchant_name: str = "ShegerPay Verification",
+    ) -> Dict[str, Any]:
+        """Verify payment from receipt screenshot. image can be base64 or URL."""
+        payload = {"image": image, "merchant_name": merchant_name}
+        if provider:
+            payload["provider"] = provider
+        if amount is not None:
+            payload["amount"] = amount
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request("POST", "/api/v1/verify/image", data=payload)
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
     
     def get_history(self, limit: int = 50) -> List[Transaction]:
         """
@@ -653,10 +636,37 @@ class ShegerPay:
         """List PayPal payout requests."""
         return self._request('GET', '/api/v1/paypal/payouts')
     
+    def get_providers(self) -> Dict[str, Any]:
+        """Get list of supported payment providers and their status."""
+        return self._request("GET", "/api/v1/providers")
+
+    @staticmethod
+    def verify_webhook_signature(payload: str, signature: str, secret: str) -> bool:
+        """Verify webhook signature using HMAC-SHA256."""
+        import hmac, hashlib
+        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature.replace("sha256=", ""))
+
+    @staticmethod
+    def verify_redirect_signature(params: Dict[str, Any], signature: str, secret: str) -> bool:
+        """Verify signed payment-link redirect parameters."""
+        import hmac, hashlib
+        amount = f"{float(params.get('amount') or 0):.2f}"
+        payload = "|".join([
+            str(params.get("checkout_session_id") or params.get("checkoutSessionId") or ""),
+            str(params.get("order_id") or params.get("orderId") or ""),
+            str(params.get("short_code") or params.get("shortCode") or ""),
+            amount,
+            str(params.get("currency") or "ETB"),
+            str(params.get("status") or "paid"),
+        ])
+        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature.replace("sha256=", ""))
+
     def _request(
-        self, 
-        method: str, 
-        path: str, 
+        self,
+        method: str,
+        path: str,
         data: Dict = None,
         params: Dict = None
     ) -> Dict[str, Any]:
@@ -705,6 +715,8 @@ class ShegerPay:
             except Exception:
                 message = 'Server error' if response.status_code >= 500 else 'Request failed'
             raise ShegerPayError(message, status_code=response.status_code)
+        if response.status_code == 204:
+            return {}
         return response.json()
 
     # =========================================================================
@@ -720,7 +732,8 @@ class ShegerPay:
         enable_cbe: bool = True,
         enable_telebirr: bool = True,
         enable_crypto: bool = False,
-        expires_in_hours: int = 24
+        expires_in_hours: int = 24,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Create a shareable payment link with QR code.
@@ -745,13 +758,116 @@ class ShegerPay:
             'enable_cbe': enable_cbe,
             'enable_telebirr': enable_telebirr,
             'enable_crypto': enable_crypto,
-            'expires_in_hours': expires_in_hours
+            'expires_in_hours': expires_in_hours,
+            'amount_mode': kwargs.get('amount_mode'),
+            'amount_options': kwargs.get('amount_options'),
+            'min_amount': kwargs.get('min_amount'),
+            'max_amount': kwargs.get('max_amount'),
+            'promo_code_ids': kwargs.get('promo_code_ids'),
+            'payment_method_layout': kwargs.get('payment_method_layout'),
+            'allow_quantity': kwargs.get('allow_quantity'),
+            'max_quantity': kwargs.get('max_quantity'),
+            'redirect_url': kwargs.get('redirect_url'),
+            'webhook_url': kwargs.get('webhook_url'),
+            'business_name': kwargs.get('business_name'),
+            'merchant_logo_url': kwargs.get('merchant_logo_url'),
+            'theme_color': kwargs.get('theme_color'),
+            'hide_branding': kwargs.get('hide_branding')
         }
         if description:
             data['description'] = description
         response = self._request('POST', '/api/v1/payment-links/', data=data)
         self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
         return response
+
+    def get_payment_link_order_status(self, short_code: str, order_id: str) -> Dict[str, Any]:
+        """Get source-of-truth status for one payment-link checkout order."""
+        return self._request('GET', f'/api/v1/payment-links/{short_code}/orders/{order_id}/status')
+
+    def create_promo_code(self, code: str, discount_value: float = None, discount_percent: int = None, discount_type: str = "percent", **kwargs) -> Dict[str, Any]:
+        """Create a reusable promo code. Requires a secret API key and discount_codes entitlement."""
+        payload = self._promo_payload(code=code, discount_value=discount_value, discount_percent=discount_percent, discount_type=discount_type, **kwargs)
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request('POST', '/api/v1/promo-codes/', data=payload)
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+
+    def list_promo_codes(self) -> List[Dict[str, Any]]:
+        """List reusable promo codes for the merchant."""
+        return self._request('GET', '/api/v1/promo-codes/')
+
+    def update_promo_code(self, code_id: str, **kwargs) -> Dict[str, Any]:
+        """Update a reusable promo code."""
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request('PATCH', f'/api/v1/promo-codes/{code_id}', data=self._promo_payload(**kwargs))
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+
+    def delete_promo_code(self, code_id: str) -> Dict[str, Any]:
+        """Delete a promo code."""
+        return self._request('DELETE', f'/api/v1/promo-codes/{code_id}')
+
+    def validate_promo_code(self, code: str, amount: float, link_id: str = None, provider: str = None, customer_identifier: str = None) -> Dict[str, Any]:
+        """Preview a promo code before payment. Does not consume usage."""
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request('POST', '/api/v1/promo-codes/validate', data={
+            'code': code,
+            'amount': amount,
+            'link_id': link_id,
+            'provider': provider,
+            'customer_identifier': customer_identifier,
+        })
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+
+    def redeem_promo_code(self, code: str, amount: float, transaction_id: str, link_id: str = None, provider: str = None, customer_identifier: str = None, order_id: str = None, idempotency_key: str = None) -> Dict[str, Any]:
+        """Redeem after ShegerPay verification succeeds. Idempotent for the transaction/order."""
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request('POST', '/api/v1/promo-codes/redeem', data={
+            'code': code,
+            'amount': amount,
+            'link_id': link_id,
+            'provider': provider,
+            'customer_identifier': customer_identifier,
+            'transaction_id': transaction_id,
+            'order_id': order_id,
+            'idempotency_key': idempotency_key,
+        })
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+
+    def apply_payment_link_coupon(self, short_code: str, code: str, amount: float = None, quantity: int = 1, provider: str = None, customer_identifier: str = None) -> Dict[str, Any]:
+        """Preview a promo code against a ShegerPay payment link."""
+        self._session.headers['Content-Type'] = 'application/json'
+        response = self._request('POST', f'/api/v1/payment-links/{short_code}/apply-coupon', data={
+            'code': code,
+            'amount': amount,
+            'quantity': quantity,
+            'provider': provider,
+            'customer_identifier': customer_identifier,
+        })
+        self._session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        return response
+
+    def _promo_payload(self, **kwargs) -> Dict[str, Any]:
+        mapping = {
+            'discount_type': kwargs.get('discount_type'),
+            'discount_value': kwargs.get('discount_value', kwargs.get('discount_percent')),
+            'discount_percent': kwargs.get('discount_percent'),
+            'max_discount_amount': kwargs.get('max_discount_amount'),
+            'min_order_amount': kwargs.get('min_order_amount'),
+            'max_uses': kwargs.get('max_uses'),
+            'max_uses_per_customer': kwargs.get('max_uses_per_customer'),
+            'starts_at': kwargs.get('starts_at'),
+            'expires_at': kwargs.get('expires_at'),
+            'active': kwargs.get('active'),
+            'applies_to_link_ids': kwargs.get('applies_to_link_ids'),
+            'allowed_providers': kwargs.get('allowed_providers'),
+            'metadata': kwargs.get('metadata'),
+        }
+        if kwargs.get('code') is not None:
+            mapping['code'] = kwargs.get('code')
+        return {k: v for k, v in mapping.items() if v is not None}
     
     def list_payment_links(self) -> List[Dict[str, Any]]:
         """List all payment links."""
@@ -1021,5 +1137,5 @@ def verify(api_key: str, transaction_id: str, amount: float, **kwargs) -> Verifi
     return client.verify(transaction_id=transaction_id, amount=amount, **kwargs)
 
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __all__ = ['ShegerPay', 'VerificationResult', 'Transaction', 'Provider', 'ShegerPayError', 'verify']

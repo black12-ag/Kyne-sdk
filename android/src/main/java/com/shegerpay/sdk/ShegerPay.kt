@@ -3,7 +3,7 @@
  * Official Android SDK for ShegerPay Payment Verification Gateway
  * 
  * Installation (Gradle):
- *   implementation("com.shegerpay:sdk:2.0.0")
+ *   implementation("com.shegerpay:sdk:2.2.0")
  * 
  * Usage:
  *   val client = ShegerPay("sk_test_xxx")
@@ -180,20 +180,50 @@ class ShegerPay(
      */
     suspend fun quickVerify(
         transactionId: String,
-        amount: Double,
+        amount: Double? = null,
         expectedProvider: PaymentProvider? = null,
         senderAccount: String? = null
     ): VerificationResult = 
         withContext(Dispatchers.IO) {
             val params = buildMap {
                 put("transaction_id", transactionId)
-                put("amount", amount)
+                amount?.let { put("amount", it) }
                 expectedProvider?.let { put("expected_provider", it.value) }
                 senderAccount?.takeIf { it.isNotBlank() }?.let { put("sender_account", it) }
             }
             post("/api/v1/quick-verify", params)
         }
     
+    // ============================================
+    // IMAGE VERIFICATION
+    // ============================================
+
+    /**
+     * Verify payment from a receipt screenshot (base64 or URL)
+     */
+    suspend fun verifyImage(
+        image: String,
+        provider: String? = null,
+        amount: Double? = null,
+        merchantName: String = "ShegerPay Verification"
+    ): VerificationResult {
+        val params = mutableMapOf<String, Any>("image" to image, "merchant_name" to merchantName)
+        provider?.let { params["provider"] = it }
+        amount?.let { params["amount"] = it }
+        return post("/api/v1/verify/image", params)
+    }
+
+    // ============================================
+    // PROVIDERS
+    // ============================================
+
+    /**
+     * Get list of supported payment providers and their status
+     */
+    suspend fun getProviders(): Map<String, Any> = withContext(Dispatchers.IO) {
+        get("/api/v1/providers")
+    }
+
     // ============================================
     // PAYMENT LINKS
     // ============================================
@@ -308,7 +338,7 @@ class ShegerPay(
     
     companion object {
         private const val DEFAULT_BASE_URL = "https://api.shegerpay.com"
-        private const val SDK_VERSION = "2.0.0"
+        private const val SDK_VERSION = "2.2.0"
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         
         /**

@@ -39,6 +39,7 @@ if (result.valid) {
 - ✅ Receipt image/PDF OCR via `verifyImage`
 - ✅ PayPal checkout, wallet balance, and payout requests
 - ✅ Payment links with QR codes
+- ✅ Reusable promo codes for payment links and custom API checkouts
 - ✅ Webhooks
 - ✅ Transaction history and monitoring
 
@@ -59,7 +60,7 @@ const result = await client.quickVerify("FT24352648751234", 100);
 
 // BOA receipt verification
 const boaResult = await client.verify({
-  transactionId: "https://cs.bankofabyssinia.com/slip/?trx=FT26091B1X5152078",
+  transactionId: "FT26091B1X5152078", // also accepts full slip URL, SMS text, or image via verifyImage
   amount: 100,
   provider: "boa",
   senderAccount: "52078",
@@ -86,6 +87,44 @@ console.log(link.qrCode); // data:image/png;base64,...
 
 // List links
 const links = await client.listPaymentLinks();
+```
+
+### Promo Codes
+
+```typescript
+const code = await client.createPromoCode({
+  code: "STARTUP20",
+  discountType: "percent",
+  discountValue: 20,
+  maxUses: 100,
+  maxUsesPerCustomer: 1,
+  minOrderAmount: 100,
+});
+
+const preview = await client.validatePromoCode({
+  code: "STARTUP20",
+  amount: 500,
+  provider: "cbe",
+  customerIdentifier: "buyer@example.com",
+});
+
+// Customer must pay preview.discounted_amount exactly.
+const verified = await client.verify({
+  transactionId: "FT26112GCXZD05529667",
+  amount: preview.discounted_amount,
+  provider: "cbe",
+});
+
+if (verified.verified) {
+  await client.redeemPromoCode({
+    code: "STARTUP20",
+    amount: 500,
+    provider: "cbe",
+    transactionId: verified.transactionId || "FT26112GCXZD05529667",
+    orderId: "order_1001",
+    customerIdentifier: "buyer@example.com",
+  });
+}
 ```
 
 ### Crypto Payments

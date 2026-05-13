@@ -1,11 +1,12 @@
 # ShegerPay SDK
 
-Official SDKs for integrating ShegerPay quickly.
+Official SDKs for integrating ShegerPay quickly. Current version: **2.2.0**
 
 ## What You Can Do
 
 - Verify Ethiopian payment transactions (`/verify`, `/quick-verify`, `/verify-image`)
 - Create and manage payment links
+- Create, validate, and redeem reusable promo codes for payment links or your own checkout
 - Verify crypto payments
 - Use PayPal checkout and PayPal payout requests
 - Configure webhooks and verify webhook signatures
@@ -31,14 +32,112 @@ print(result.valid)
 
 BOA note:
 
-- Use full BOA receipt URL or full `trx` value
+- Use transaction ID, full BOA receipt URL/full `trx`, SMS text, or receipt image/PDF
 - Include sender account (`sender_account` / `senderAccount`)
+
+Supported providers: `cbe`, `telebirr`, `boa`, `awash`, `ebirr_kaafi`, `ebirr_coop`
+
+### Verify from screenshot (verifyImage)
+
+```python
+# Python — pass base64-encoded image
+import base64
+
+with open("receipt.png", "rb") as f:
+    image_b64 = base64.b64encode(f.read()).decode()
+
+result = client.verify_image(screenshot=image_b64, amount=500, provider="cbe")
+print(result.verified)
+```
+
+```javascript
+// JavaScript / TypeScript — pass a File or Blob (browser) or Buffer (Node.js)
+const fs = require('fs');
+const { Blob } = require('buffer');
+
+const data = fs.readFileSync('receipt.png');
+const blob = new Blob([data], { type: 'image/png' });
+
+const result = await client.verifyImage({ screenshot: blob, amount: 500, provider: 'cbe' });
+console.log(result.verified);
+```
+
+The `amount` field is optional for image verification — omit it to let the OCR extract the amount automatically:
+
+```javascript
+const result = await client.verifyImage({ screenshot: blob, provider: 'telebirr' });
+```
+
+## Promo Codes
+
+Promo codes use the same backend for payment links and merchant-owned websites.
+
+```ts
+const promo = await client.createPromoCode({
+  code: 'STARTUP20',
+  discountType: 'percent',
+  discountValue: 20,
+  maxUses: 100,
+  maxUsesPerCustomer: 1,
+  minOrderAmount: 100,
+});
+
+const preview = await client.validatePromoCode({
+  code: 'STARTUP20',
+  amount: 500,
+  provider: 'cbe',
+  customerIdentifier: 'buyer@example.com',
+});
+
+// Ask the customer to pay preview.discounted_amount exactly.
+const verification = await client.verify({
+  transactionId: 'FT26112GCXZD05529667',
+  amount: preview.discounted_amount,
+  provider: 'cbe',
+});
+
+if (verification.verified) {
+  await client.redeemPromoCode({
+    code: 'STARTUP20',
+    amount: 500,
+    transactionId: verification.transactionId || 'FT26112GCXZD05529667',
+    orderId: 'order_1001',
+    customerIdentifier: 'buyer@example.com',
+  });
+}
+```
+
+Management and redemption require a secret key. Redemption is idempotent by transaction/order, so safe retries do not consume another use.
+
+## Payment Links: Knowing When The Merchant Website Should Approve
+
+Use `payment_link.order.verified` as the server-to-server approval event. Buyer redirects are helpful for UX, but your backend should trust the webhook or the order-status API.
+
+```ts
+// 1. Create a payment link with a webhook and redirect URL.
+const link = await client.createPaymentLink({
+  title: 'Order #1001',
+  amount: 500,
+  currency: 'ETB',
+  redirectUrl: 'https://merchant.example/success',
+  webhookUrl: 'https://merchant.example/shegerpay/webhook',
+});
+
+// 2. On webhook: mark your website order paid when event is payment_link.order.verified.
+// data includes order_id, checkout_session_id, short_code, amount, currency,
+// provider, transaction_id, promo_code, discount_amount, verified_at, signature.
+
+// 3. Optional fallback: poll order status from your frontend/backend.
+const status = await client.getPaymentLinkOrderStatus(link.shortCode, 'ord_EXAMPLE');
+```
+
+Redirect URLs include signed params: `checkout_session_id`, `order_id`, `short_code`, `amount`, `currency`, `status=paid`, and `signature`.
 
 ## Install
 
 | Language | Install |
 | --- | --- |
-| TypeScript / JavaScript | `npm install @shegerpay/sdk` |
+| TypeScript / JavaScript | `npm install @shegerpay/sdk@2.2.0` |
 | Python | `pip install shegerpay` |
 | PHP | `composer require shegerpay/sdk` |
 | Ruby | `gem install shegerpay` |
@@ -47,6 +146,59 @@ BOA note:
 | C# | `dotnet add package ShegerPay.SDK` |
 | Swift (iOS) | Swift Package Manager (`ShegerPaySDK`) |
 | Dart / Flutter | `dart pub add shegerpay` |
+| WordPress / WooCommerce | [See WordPress Plugin](#wordpress--woocommerce-plugin) — zip & upload, no coding needed |
+
+---
+
+## WordPress / WooCommerce Plugin
+
+Accept Ethiopian bank payments in your WooCommerce store — **no coding required**.
+
+### What it does
+- Adds a **"Pay with Ethiopian Bank"** option at WooCommerce checkout
+- Customer chooses provider, enters transaction ID/SMS/slip URL, or uploads receipt image/PDF for OCR
+- BOA checkout includes a required sender-account field
+- Plugin calls ShegerPay API instantly and auto-verifies the payment
+- Optional ShegerPay promo-code field validates discounts server-side with provider/customer context and redeems once after verified payment
+- Order marked complete automatically on success
+
+### Install in 3 steps
+
+**1 — Download / zip the plugin**
+
+```bash
+cd sdk/wordpress
+zip -r shegerpay-woocommerce.zip shegerpay-woocommerce/
+```
+
+Or [download directly from GitHub](https://github.com/black12-ag/ShegerPay/tree/main/sdk/wordpress/shegerpay-woocommerce).
+
+**2 — Upload to WordPress**
+
+WordPress Admin → **Plugins → Add New → Upload Plugin** → choose the zip → Install → Activate
+
+**3 — Configure**
+
+WooCommerce → **Settings → Payments → ShegerPay** → paste your API key → Save
+
+### Requirements
+- WordPress 6.0+
+- WooCommerce 6.0+
+- PHP 7.4+
+- ShegerPay API key (get one free at [shegerpay.com](https://shegerpay.com))
+
+### Plugin files
+```
+sdk/wordpress/shegerpay-woocommerce/
+  shegerpay-woocommerce.php          ← main plugin file
+  includes/
+    class-shegerpay-gateway.php      ← WooCommerce payment gateway
+    class-shegerpay-api.php          ← API wrapper
+  assets/                            ← logo/icons
+  readme.txt                         ← WordPress plugin directory format
+```
+
+---
 
 ## Public Scope
 
@@ -200,7 +352,7 @@ except ShegerPayError as e:
 ## 🆘 Support
 
 - 📖 [Documentation](https://shegerpay.com/docs)
-- 💬 [Telegram](https://t.me/shegerpay0)
+- 💬 [Telegram](https://t.me/shegerpay_0)
 - 📧 [support@shegerpay.com](mailto:support@shegerpay.com)
 - 🐛 [GitHub Issues](https://github.com/black12-ag/ShegerPay/issues)
 

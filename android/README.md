@@ -8,7 +8,7 @@ Official Android SDK for ShegerPay Payment Verification Gateway.
 
 ```kotlin
 dependencies {
-    implementation("com.shegerpay:sdk:2.0.0")
+    implementation("com.shegerpay:sdk:2.2.0")
 }
 ```
 
@@ -16,7 +16,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.shegerpay:sdk:2.0.0'
+    implementation 'com.shegerpay:sdk:2.2.0'
 }
 ```
 
@@ -36,7 +36,7 @@ Then add:
 
 ```groovy
 dependencies {
-    implementation 'com.github.shegerpay:android-sdk:2.0.0'
+    implementation 'com.github.shegerpay:android-sdk:2.2.0'
 }
 ```
 
@@ -141,6 +141,39 @@ val result = client.verify(
 | Awash    | `PaymentProvider.AWASH`    | `AW` prefix      |
 | BoA      | `PaymentProvider.BOA`      | Receipt URL / full `trx` |
 | E-Birr   | `PaymentProvider.EBIRR`    | Reference code   |
+
+---
+
+## 🖼 Receipt Image Verification
+
+```kotlin
+// Verify from base64-encoded screenshot
+val result = client.verifyImage(
+    image = "iVBORw0KGgoAAAANSUhEUgAA...",  // base64 string
+    provider = "cbe",
+    amount = 150.0,
+    merchantName = "My Shop"
+)
+
+if (result.valid) {
+    Log.d("ShegerPay", "Payment verified from receipt image!")
+}
+
+// Or verify from a public URL
+val result2 = client.verifyImage(
+    image = "https://example.com/receipt.png",
+    merchantName = "My Shop"
+)
+```
+
+---
+
+## 📋 Get Supported Providers
+
+```kotlin
+val providers = client.getProviders()
+Log.d("ShegerPay", providers.toString())
+```
 
 ---
 

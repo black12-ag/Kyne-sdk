@@ -1,6 +1,6 @@
 [project]
 name = "shegerpay"
-version = "1.0.0"
+version = "2.2.0"
 description = "Official Python SDK for ShegerPay Payment Verification Gateway"
 readme = "README.md"
 license = {text = "MIT"}

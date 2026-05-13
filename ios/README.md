@@ -10,7 +10,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/shegerpay/ios-sdk.git", from: "2.0.0")
+    .package(url: "https://github.com/shegerpay/ios-sdk.git", from: "2.2.0")
 ]
 ```
 
@@ -23,7 +23,7 @@ Or in Xcode:
 ### CocoaPods
 
 ```ruby
-pod 'ShegerPaySDK', '~> 2.0'
+pod 'ShegerPaySDK', '~> 2.2'
 ```
 
 ### Manual Installation
@@ -99,6 +99,39 @@ let result = try await client.verify(
 | Awash    | `AW` prefix      | `AW24352648751234`  |
 | BoA      | Receipt URL / full `trx` | `https://cs.bankofabyssinia.com/slip/?trx=FT26091B1X5152078` |
 | E-Birr   | Reference code   | `EB123456`          |
+
+---
+
+## 🖼 Receipt Image Verification
+
+```swift
+// Verify from base64-encoded screenshot
+let result = try await client.verifyImage(
+    "iVBORw0KGgoAAAANSUhEUgAA...",  // base64 string
+    provider: "cbe",
+    amount: 150.00,
+    merchantName: "My Shop"
+)
+
+if result.valid {
+    print("Payment verified from receipt image!")
+}
+
+// Or verify from a public URL
+let result2 = try await client.verifyImage(
+    "https://example.com/receipt.png",
+    merchantName: "My Shop"
+)
+```
+
+---
+
+## 📋 Get Supported Providers
+
+```swift
+let providers = try await client.getProviders()
+print(providers)
+```
 
 ---
 

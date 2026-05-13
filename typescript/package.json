@@ -1,6 +1,6 @@
 {
   "name": "@shegerpay/sdk",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Official TypeScript SDK for ShegerPay Payment Verification Gateway",
   "main": "dist/shegerpay.js",
   "module": "dist/shegerpay.js",
@@ -34,6 +34,7 @@
   },
   "homepage": "https://shegerpay.com",
   "devDependencies": {
+    "@types/node": "^20.19.0",
     "typescript": "^5.0.0"
   },
   "engines": {

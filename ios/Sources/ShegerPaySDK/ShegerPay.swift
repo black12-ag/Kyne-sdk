@@ -1,14 +1,15 @@
 /**
- * ShegerPay iOS/Swift SDK
+ * ShegerPay iOS/Swift SDK v2.2.0
  * Official iOS SDK for ShegerPay Payment Verification Gateway
- * 
+ *
  * Installation (Swift Package Manager):
  *   https://github.com/shegerpay/ios-sdk.git
- * 
+ *
  * Usage:
  *   import ShegerPaySDK
  *   let client = try ShegerPay(apiKey: "sk_test_xxx")
  *   let result = try await client.verify(transactionId: "FT123456", amount: 100)
+ *   let imageResult = try await client.verifyImage("base64_or_url", provider: "cbe", amount: 100)
  */
 
 import Foundation
@@ -178,7 +179,7 @@ public final class ShegerPay: Sendable {
     public let isTestMode: Bool
     
     private static let defaultBaseURL = "https://api.shegerpay.com"
-    private static let sdkVersion = "2.0.0"
+    private static let sdkVersion = "2.2.0"
     
     public init(apiKey: String, baseURL: String? = nil) throws {
         guard !apiKey.isEmpty else {
@@ -200,7 +201,7 @@ public final class ShegerPay: Sendable {
     /// Verify an Ethiopian bank payment (CBE, Telebirr, Awash, etc.)
     public func verify(
         transactionId: String,
-        amount: Double,
+        amount: Double? = nil,
         provider: PaymentProvider? = nil,
         merchantName: String? = nil,
         senderAccount: String? = nil
@@ -218,9 +219,9 @@ public final class ShegerPay: Sendable {
         var params: [String: Any] = [
             "provider": detectedProvider.rawValue,
             "transaction_id": transactionId,
-            "amount": amount,
             "merchant_name": merchantName ?? "ShegerPay Verification"
         ]
+        if let amount { params["amount"] = amount }
         if let senderAccount, !senderAccount.isEmpty {
             params["sender_account"] = senderAccount
         }
@@ -231,14 +232,14 @@ public final class ShegerPay: Sendable {
     /// Quick verification with auto-detected provider
     public func quickVerify(
         transactionId: String,
-        amount: Double,
+        amount: Double? = nil,
         expectedProvider: PaymentProvider? = nil,
         senderAccount: String? = nil
     ) async throws -> VerificationResult {
         var params: [String: Any] = [
-            "transaction_id": transactionId,
-            "amount": amount
+            "transaction_id": transactionId
         ]
+        if let amount { params["amount"] = amount }
         if let expectedProvider {
             params["expected_provider"] = expectedProvider.rawValue
         }
@@ -248,6 +249,43 @@ public final class ShegerPay: Sendable {
         return try await post(path: "/api/v1/quick-verify", json: params)
     }
     
+    // MARK: - Image Verification
+
+    /// Verify payment from a receipt screenshot (base64 encoded string or public URL)
+    public func verifyImage(
+        _ image: String,
+        provider: String? = nil,
+        amount: Double? = nil,
+        merchantName: String = "ShegerPay Verification"
+    ) async throws -> VerificationResult {
+        var body: [String: Any] = ["image": image, "merchant_name": merchantName]
+        if let provider { body["provider"] = provider }
+        if let amount { body["amount"] = amount }
+        return try await post(path: "/api/v1/verify/image", json: body)
+    }
+
+    // MARK: - Providers
+
+    /// Get list of supported payment providers and their status
+    public func getProviders() async throws -> [String: Any] {
+        let url = URL(string: baseURL + "/api/v1/providers")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ShegerPayError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw ShegerPayError.serverError(httpResponse.statusCode, message)
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ShegerPayError.invalidResponse
+        }
+        return json
+    }
+
     // MARK: - Payment Links
     
     /// Create a shareable payment link
@@ -283,6 +321,55 @@ public final class ShegerPay: Sendable {
         }
         let result: Response = try await get(path: "/api/v1/payment-links?limit=\(limit)&offset=\(offset)")
         return result.links
+    }
+
+    // MARK: - Promo Codes
+
+    public func createPromoCode(_ params: [String: Any]) async throws -> [String: Any] {
+        try await requestDictionary(method: "POST", path: "/api/v1/promo-codes/", json: promoPayload(params))
+    }
+
+    public func listPromoCodes() async throws -> [[String: Any]] {
+        try await requestArray(method: "GET", path: "/api/v1/promo-codes/", json: nil)
+    }
+
+    public func updatePromoCode(_ codeId: String, params: [String: Any]) async throws -> [String: Any] {
+        try await requestDictionary(method: "PATCH", path: "/api/v1/promo-codes/\(codeId)", json: promoPayload(params))
+    }
+
+    public func deletePromoCode(_ codeId: String) async throws -> [String: Any] {
+        try await requestDictionary(method: "DELETE", path: "/api/v1/promo-codes/\(codeId)", json: nil)
+    }
+
+    public func validatePromoCode(code: String, amount: Double, options: [String: Any] = [:]) async throws -> [String: Any] {
+        var body = options
+        body["code"] = code
+        body["amount"] = amount
+        return try await requestDictionary(method: "POST", path: "/api/v1/promo-codes/validate", json: body)
+    }
+
+    public func redeemPromoCode(code: String, amount: Double, transactionId: String, options: [String: Any] = [:]) async throws -> [String: Any] {
+        var body = options
+        body["code"] = code
+        body["amount"] = amount
+        body["transaction_id"] = transactionId
+        return try await requestDictionary(method: "POST", path: "/api/v1/promo-codes/redeem", json: body)
+    }
+
+    public func applyPaymentLinkCoupon(shortCode: String, code: String, amount: Double? = nil, quantity: Int = 1, provider: String? = nil, customerIdentifier: String? = nil) async throws -> [String: Any] {
+        var body: [String: Any] = ["code": code, "quantity": quantity]
+        if let amount { body["amount"] = amount }
+        if let provider { body["provider"] = provider }
+        if let customerIdentifier { body["customer_identifier"] = customerIdentifier }
+        return try await requestDictionary(method: "POST", path: "/api/v1/payment-links/\(shortCode)/apply-coupon", json: body)
+    }
+
+    public func getPaymentLinkOrderStatus(shortCode: String, orderId: String) async throws -> [String: Any] {
+        return try await requestDictionary(
+            method: "GET",
+            path: "/api/v1/payment-links/\(shortCode)/orders/\(orderId)/status",
+            json: nil
+        )
     }
     
     // MARK: - Crypto Payments
@@ -336,6 +423,38 @@ public final class ShegerPay: Sendable {
         return false
         #endif
     }
+
+    public static func verifyRedirectSignature(params: [String: Any], signature: String, secret: String) -> Bool {
+        #if canImport(CommonCrypto)
+        let amountValue = Double("\(params["amount"] ?? "0")") ?? 0
+        let amount = String(format: "%.2f", amountValue)
+        let payload = [
+            "\(params["checkout_session_id"] ?? params["checkoutSessionId"] ?? "")",
+            "\(params["order_id"] ?? params["orderId"] ?? "")",
+            "\(params["short_code"] ?? params["shortCode"] ?? "")",
+            amount,
+            "\(params["currency"] ?? "ETB")",
+            "\(params["status"] ?? "paid")"
+        ].joined(separator: "|")
+        guard let keyData = secret.data(using: .utf8),
+              let payloadData = payload.data(using: .utf8) else {
+            return false
+        }
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        keyData.withUnsafeBytes { keyBytes in
+            payloadData.withUnsafeBytes { dataBytes in
+                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),
+                       keyBytes.baseAddress, keyData.count,
+                       dataBytes.baseAddress, payloadData.count,
+                       &digest)
+            }
+        }
+        let expected = digest.map { String(format: "%02x", $0) }.joined()
+        return expected == signature.replacingOccurrences(of: "sha256=", with: "")
+        #else
+        return false
+        #endif
+    }
     
     // MARK: - Private HTTP Methods
     
@@ -355,6 +474,72 @@ public final class ShegerPay: Sendable {
         request.httpBody = try JSONSerialization.data(withJSONObject: json)
         addHeaders(to: &request)
         return try await execute(request)
+    }
+
+    private func requestDictionary(method: String, path: String, json: [String: Any]?) async throws -> [String: Any] {
+        var request = URLRequest(url: URL(string: baseURL + path)!)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let json, method != "GET", method != "DELETE" {
+            request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        }
+        addHeaders(to: &request)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ShegerPayError.invalidResponse
+        }
+        switch httpResponse.statusCode {
+        case 200...299:
+            if httpResponse.statusCode == 204 { return [:] }
+            return (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        case 401:
+            throw ShegerPayError.authenticationFailed
+        case 429:
+            throw ShegerPayError.rateLimitExceeded
+        default:
+            throw ShegerPayError.serverError(httpResponse.statusCode, String(data: data, encoding: .utf8) ?? "Unknown error")
+        }
+    }
+
+    private func requestArray(method: String, path: String, json: [String: Any]?) async throws -> [[String: Any]] {
+        var request = URLRequest(url: URL(string: baseURL + path)!)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let json, method != "GET", method != "DELETE" {
+            request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        }
+        addHeaders(to: &request)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ShegerPayError.invalidResponse
+        }
+        switch httpResponse.statusCode {
+        case 200...299:
+            return (try JSONSerialization.jsonObject(with: data)) as? [[String: Any]] ?? []
+        case 401:
+            throw ShegerPayError.authenticationFailed
+        case 429:
+            throw ShegerPayError.rateLimitExceeded
+        default:
+            throw ShegerPayError.serverError(httpResponse.statusCode, String(data: data, encoding: .utf8) ?? "Unknown error")
+        }
+    }
+
+    private func promoPayload(_ params: [String: Any]) -> [String: Any] {
+        Dictionary(uniqueKeysWithValues: params.map { (snakeCase($0.key), $0.value) })
+    }
+
+    private func snakeCase(_ value: String) -> String {
+        value.reduce(into: "") { output, character in
+            if character.isUppercase {
+                output.append("_")
+                output.append(character.lowercased())
+            } else {
+                output.append(character)
+            }
+        }
     }
     
     private func addHeaders(to request: inout URLRequest) {
